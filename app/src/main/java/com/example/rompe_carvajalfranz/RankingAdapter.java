@@ -28,14 +28,26 @@ public class RankingAdapter extends RecyclerView.Adapter<RankingAdapter.VH> {
 
     @Override
     public void onBindViewHolder(@NonNull VH holder, int position) {
-        ScoreRepository.ScoreRow row = items.get(position);
-        holder.user.setText(row.username);
-        holder.moves.setText("Movs: " + row.moves);
-        long ms = row.timeMs;
-        long m = TimeUnit.MILLISECONDS.toMinutes(ms);
-        long s = TimeUnit.MILLISECONDS.toSeconds(ms) % 60;
-        holder.time.setText(String.format("%02d:%02d", m, s));
-        holder.rank.setText(String.valueOf(position + 1));
+        try {
+            if (position >= 0 && position < items.size()) {
+                ScoreRepository.ScoreRow row = items.get(position);
+                if (row != null) {
+                    holder.user.setText(row.username != null ? row.username : "Usuario");
+                    holder.moves.setText("Movs: " + row.moves);
+                    long ms = row.timeMs;
+                    long m = TimeUnit.MILLISECONDS.toMinutes(ms);
+                    long s = TimeUnit.MILLISECONDS.toSeconds(ms) % 60;
+                    holder.time.setText(String.format("%02d:%02d", m, s));
+                    holder.rank.setText(String.valueOf(position + 1));
+                }
+            }
+        } catch (Exception e) {
+            // Manejo de errores silencioso para evitar crashes
+            holder.user.setText("Error");
+            holder.moves.setText("Movs: 0");
+            holder.time.setText("00:00");
+            holder.rank.setText("?");
+        }
     }
 
     @Override

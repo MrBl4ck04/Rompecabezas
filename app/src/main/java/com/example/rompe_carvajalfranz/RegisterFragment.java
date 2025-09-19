@@ -33,6 +33,7 @@ public class RegisterFragment extends Fragment {
         EditText password = view.findViewById(R.id.reg_password);
         EditText password2 = view.findViewById(R.id.reg_password_repeat);
         Button btnRegister = view.findViewById(R.id.btn_register);
+        View backBtn = view.findViewById(R.id.back_btn);
 
         btnRegister.setOnClickListener(v -> {
             String u = username.getText().toString().trim();
@@ -54,6 +55,12 @@ public class RegisterFragment extends Fragment {
                 if (getActivity() instanceof RegisterNavigator) {
                     ((RegisterNavigator) getActivity()).backToLogin();
                 }
+            }
+        });
+
+        backBtn.setOnClickListener(v -> {
+            if (getActivity() instanceof RegisterNavigator) {
+                ((RegisterNavigator) getActivity()).backToLogin();
             }
         });
     }

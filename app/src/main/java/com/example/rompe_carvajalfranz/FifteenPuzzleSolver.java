@@ -8,12 +8,12 @@ import java.util.PriorityQueue;
 
 /**
  * Solver A* para 15-puzzle con heurística Manhattan.
- * Representación: arreglo de 16 enteros con valores 0..15 (0 es vacío).
- * Devuelve una lista de índices (posiciones lineales 0..15) a donde mover el vacío en secuencia.
+ * Representación: arreglo de 9 enteros con valores 0..8 (0 es vacío).
+ * Devuelve una lista de índices (posiciones lineales 0..8) a donde mover el vacío en secuencia.
  */
 public class FifteenPuzzleSolver {
 
-    private static final int SIZE = 4;
+    private static final int SIZE = 3;
 
     private static class Node implements Comparable<Node> {
         int[] state;

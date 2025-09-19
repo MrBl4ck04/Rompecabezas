@@ -1,5 +1,6 @@
 package com.example.rompe_carvajalfranz;
 
+import android.app.AlertDialog;
 import android.content.ContentValues;
 import android.content.Intent;
 import android.graphics.Bitmap;
@@ -17,6 +18,8 @@ import android.widget.Chronometer;
 import android.widget.GridLayout;
 import android.widget.ImageView;
 import android.widget.Toast;
+import androidx.core.content.ContextCompat;
+import java.util.concurrent.TimeUnit;
 
 import androidx.activity.result.ActivityResultCallback;
 import androidx.activity.result.ActivityResultLauncher;
@@ -40,12 +43,14 @@ import java.util.Locale;
 
 public class PuzzleImageActivity extends AppCompatActivity {
 
-    private static final int GRID_SIZE = 4;
+    private static final int GRID_SIZE = 3;
     private GridLayout grid;
     private Chronometer chrono;
     private Uri cameraPhotoUri;
     private int emptyIndex;
     private final List<Bitmap> tiles = new ArrayList<>();
+    // Estado objetivo estable (orden correcto de las piezas)
+    private final List<Bitmap> goalTiles = new ArrayList<>();
     private int moves;
 
     private final ActivityResultLauncher<String> pickImageLauncher = registerForActivityResult(
@@ -76,16 +81,30 @@ public class PuzzleImageActivity extends AppCompatActivity {
     protected void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_puzzle_image);
-        grid = findViewById(R.id.grid_image);
-        chrono = findViewById(R.id.chrono_image);
-        Button btnGallery = findViewById(R.id.btn_pick_gallery);
-        Button btnCamera = findViewById(R.id.btn_pick_camera);
+        
+        try {
+            grid = findViewById(R.id.grid_image);
+            chrono = findViewById(R.id.chrono_image);
+            Button btnGallery = findViewById(R.id.btn_pick_gallery);
+            Button btnCamera = findViewById(R.id.btn_pick_camera);
+            Button btnSolve = findViewById(R.id.btn_solve_image);
 
-        grid.setColumnCount(GRID_SIZE);
-        grid.setRowCount(GRID_SIZE);
+            if (grid == null || chrono == null || btnGallery == null || btnCamera == null || btnSolve == null) {
+                Toast.makeText(this, "Error al cargar la interfaz", Toast.LENGTH_SHORT).show();
+                finish();
+                return;
+            }
 
-        btnGallery.setOnClickListener(v -> pickImageLauncher.launch("image/*"));
-        btnCamera.setOnClickListener(v -> startCamera());
+            grid.setColumnCount(GRID_SIZE);
+            grid.setRowCount(GRID_SIZE);
+
+            btnGallery.setOnClickListener(v -> pickImageLauncher.launch("image/*"));
+            btnCamera.setOnClickListener(v -> startCamera());
+            btnSolve.setOnClickListener(v -> solveCurrent());
+        } catch (Exception e) {
+            Toast.makeText(this, "Error al inicializar: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+            finish();
+        }
     }
 
     private void startCamera() {
@@ -180,17 +199,20 @@ public class PuzzleImageActivity extends AppCompatActivity {
 
     private void buildTiles(Bitmap square) {
         tiles.clear();
+        goalTiles.clear();
         int tileSize = square.getWidth() / GRID_SIZE;
         for (int r = 0; r < GRID_SIZE; r++) {
             for (int c = 0; c < GRID_SIZE; c++) {
                 if (r == GRID_SIZE - 1 && c == GRID_SIZE - 1) {
-                    tiles.add(null); // empty
+                    goalTiles.add(null); // vacío al final
                 } else {
                     Bitmap tile = Bitmap.createBitmap(square, c * tileSize, r * tileSize, tileSize, tileSize);
-                    tiles.add(tile);
+                    goalTiles.add(tile);
                 }
             }
         }
+        // Crear una copia barajada del objetivo
+        tiles.addAll(goalTiles);
         do {
             Collections.shuffle(tiles);
         } while (!isSolvableForImages(tiles));
@@ -206,7 +228,7 @@ public class PuzzleImageActivity extends AppCompatActivity {
                 iv.setScaleType(ImageView.ScaleType.CENTER_CROP);
                 if (b != null) {
                     iv.setImageBitmap(b);
-                    iv.setBackgroundColor(getResources().getColor(R.color.blue_100));
+                    iv.setBackground(ContextCompat.getDrawable(this, R.drawable.tile_background));
                 }
                 GridLayout.LayoutParams lp = new GridLayout.LayoutParams();
                 lp.width = 0;
@@ -215,29 +237,63 @@ public class PuzzleImageActivity extends AppCompatActivity {
                 lp.rowSpec = GridLayout.spec(r, 1f);
                 lp.setMargins(6, 6, 6, 6);
                 iv.setLayoutParams(lp);
-                final int currentIndex = index;
-                iv.setOnClickListener(v -> onTileClick(currentIndex));
+                // Guardar el índice lógico actual en el tag del view
+                iv.setTag(index);
+                iv.setOnClickListener(v -> onTileClickFromView(v));
                 grid.addView(iv);
                 if (b == null) emptyIndex = index;
                 index++;
             }
         }
+        
+        // Validar que el estado se inicializó correctamente
+        if (tiles.size() != GRID_SIZE * GRID_SIZE) {
+            Toast.makeText(this, "Error al inicializar el estado del rompecabezas", Toast.LENGTH_SHORT).show();
+            return;
+        }
     }
 
     private void onTileClick(int tileIndex) {
-        if (canSwap(tileIndex, emptyIndex)) {
-            swapTiles(tileIndex, emptyIndex);
-            emptyIndex = tileIndex;
-            if (isCompleted()) {
-                chrono.stop();
-                Toast.makeText(this, "¡Completado!", Toast.LENGTH_SHORT).show();
-                long elapsed = SystemClock.elapsedRealtime() - chrono.getBase();
-                String user = new SessionManager(this).getLoggedInUser();
-                if (user != null) {
-                    new ScoreRepository(this).insertScore(user, "image", GRID_SIZE, moves, elapsed);
+        try {
+            // Validar índices
+            if (tileIndex < 0 || tileIndex >= GRID_SIZE * GRID_SIZE || 
+                emptyIndex < 0 || emptyIndex >= GRID_SIZE * GRID_SIZE) {
+                return;
+            }
+            
+            // No permitir click en la casilla vacía
+            if (tileIndex == emptyIndex) {
+                return;
+            }
+            
+            // Verificar si el movimiento es válido
+            if (canSwap(tileIndex, emptyIndex)) {
+                swapTiles(tileIndex, emptyIndex);
+                emptyIndex = tileIndex;
+                moves++;
+                
+                // Verificar si se completó
+                if (isCompleted()) {
+                    chrono.stop();
+                    long elapsed = SystemClock.elapsedRealtime() - chrono.getBase();
+                    String user = new SessionManager(this).getLoggedInUser();
+                    if (user != null) {
+                        new ScoreRepository(this).insertScore(user, "image", GRID_SIZE, moves, elapsed);
+                    }
+                    showCompletionDialog(elapsed, moves);
                 }
             }
+        } catch (Exception e) {
+            Toast.makeText(this, "Error en movimiento: " + e.getMessage(), Toast.LENGTH_SHORT).show();
         }
+    }
+
+    // Obtiene el índice lógico desde la vista clicada usando su tag
+    private void onTileClickFromView(View v) {
+        Object tag = v.getTag();
+        if (!(tag instanceof Integer)) return;
+        int tileIndex = (Integer) tag;
+        onTileClick(tileIndex);
     }
 
     private boolean canSwap(int a, int b) {
@@ -247,49 +303,117 @@ public class PuzzleImageActivity extends AppCompatActivity {
     }
 
     private void swapTiles(int a, int b) {
-        View va = grid.getChildAt(a);
-        View vb = grid.getChildAt(b);
-        grid.removeViewAt(b);
-        grid.addView(va, b);
-        grid.removeViewAt(a);
-        grid.addView(vb, a);
+        try {
+            if (a < 0 || a >= tiles.size() || b < 0 || b >= tiles.size()) {
+                return;
+            }
 
-        Bitmap tmp = tiles.get(a);
-        tiles.set(a, tiles.get(b));
-        tiles.set(b, tmp);
+            // Intercambiar bitmaps en el estado lógico
+            Bitmap tmp = tiles.get(a);
+            tiles.set(a, tiles.get(b));
+            tiles.set(b, tmp);
+
+            // Actualizar visualmente solo las dos celdas afectadas
+            View va = grid.getChildAt(a);
+            View vb = grid.getChildAt(b);
+            if (va instanceof ImageView) {
+                applyBitmapToCell((ImageView) va, tiles.get(a));
+            }
+            if (vb instanceof ImageView) {
+                applyBitmapToCell((ImageView) vb, tiles.get(b));
+            }
+        } catch (Exception e) {
+            Toast.makeText(this, "Error al intercambiar fichas: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    private void applyBitmapToCell(ImageView cell, @Nullable Bitmap bmp) {
+        if (bmp == null) {
+            cell.setImageDrawable(null);
+            cell.setBackgroundColor(android.graphics.Color.TRANSPARENT);
+        } else {
+            cell.setImageBitmap(bmp);
+            cell.setBackground(ContextCompat.getDrawable(this, R.drawable.tile_background));
+        }
+    }
+
+    private void solveCurrent() {
+        try {
+            if (tiles.size() != GRID_SIZE * GRID_SIZE || goalTiles.size() != GRID_SIZE * GRID_SIZE) {
+                Toast.makeText(this, "Estado inválido para resolver", Toast.LENGTH_SHORT).show();
+                return;
+            }
+            // Mapear estado actual a enteros 1..8, 0 vacío según orden objetivo
+            int[] arr = new int[tiles.size()];
+            for (int i = 0; i < tiles.size(); i++) {
+                Bitmap b = tiles.get(i);
+                if (b == null) arr[i] = 0; else arr[i] = goalTiles.indexOf(b) + 1;
+            }
+            List<Integer> movesIdx = FifteenPuzzleSolver.solve(arr);
+            if (movesIdx == null || movesIdx.isEmpty()) {
+                Toast.makeText(this, "No se encontró solución", Toast.LENGTH_SHORT).show();
+                return;
+            }
+            playSolution(movesIdx);
+        } catch (Exception e) {
+            Toast.makeText(this, "Error al resolver: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    private void playSolution(List<Integer> movesIdx) {
+        if (movesIdx == null || movesIdx.isEmpty()) return;
+        chrono.stop();
+        final int[] step = {0};
+        grid.postDelayed(new Runnable() {
+            @Override
+            public void run() {
+                if (step[0] >= movesIdx.size()) {
+                    return;
+                }
+                int target = movesIdx.get(step[0]);
+                if (canSwap(target, emptyIndex)) {
+                    swapTiles(target, emptyIndex);
+                    emptyIndex = target;
+                }
+                step[0]++;
+                grid.postDelayed(this, 180);
+            }
+        }, 200);
     }
 
     private boolean isCompleted() {
-        // Check if tiles are in original order: last is null
-        int idx = 0;
-        for (int r = 0; r < GRID_SIZE; r++) {
-            for (int c = 0; c < GRID_SIZE; c++) {
-                if (r == GRID_SIZE - 1 && c == GRID_SIZE - 1) {
-                    return tiles.get(idx) == null;
-                }
-                // original index should match
-                Bitmap current = tiles.get(idx);
-                if (current == null) return false;
-                idx++;
+        try {
+            if (tiles.size() != GRID_SIZE * GRID_SIZE || goalTiles.size() != GRID_SIZE * GRID_SIZE) {
+                return false;
             }
+            for (int i = 0; i < goalTiles.size(); i++) {
+                if (tiles.get(i) != goalTiles.get(i)) {
+                    return false;
+                }
+            }
+            return true;
+        } catch (Exception e) {
+            return false;
         }
-        return false;
     }
 
     private boolean isSolvableForImages(List<Bitmap> arr) {
-        // Map bitmaps to numbers based on their original order: index in unshuffled list
-        List<Integer> nums = new ArrayList<>();
+        // Calcular permutación respecto al estado objetivo usando índices de goalTiles
+        List<Integer> perm = new ArrayList<>();
         for (Bitmap b : arr) {
-            if (b != null) nums.add(System.identityHashCode(b));
+            if (b == null) continue; // ignorar vacío
+            int idx = goalTiles.indexOf(b);
+            // idx estará entre 0..7 para piezas
+            perm.add(idx + 1); // usar 1..8 para piezas
         }
-        // This is a heuristic; for correctness we'd track IDs when building tiles
         int inversions = 0;
-        for (int i = 0; i < nums.size(); i++) {
-            for (int j = i + 1; j < nums.size(); j++) {
-                if (nums.get(i) > nums.get(j)) inversions++;
+        for (int i = 0; i < perm.size(); i++) {
+            for (int j = i + 1; j < perm.size(); j++) {
+                if (perm.get(i) > perm.get(j)) inversions++;
             }
         }
-        int emptyRowFromBottom = GRID_SIZE - (arr.indexOf(null) / GRID_SIZE);
+        int emptyPos = arr.indexOf(null);
+        int emptyRowFromBottom = GRID_SIZE - (emptyPos / GRID_SIZE);
         if (GRID_SIZE % 2 == 1) {
             return inversions % 2 == 0;
         } else {
@@ -299,6 +423,27 @@ public class PuzzleImageActivity extends AppCompatActivity {
                 return inversions % 2 == 0;
             }
         }
+    }
+
+    private void showCompletionDialog(long elapsedMs, int moves) {
+        long minutes = TimeUnit.MILLISECONDS.toMinutes(elapsedMs);
+        long seconds = TimeUnit.MILLISECONDS.toSeconds(elapsedMs) % 60;
+        
+        String message = String.format("¡Felicitaciones!\n\nTiempo: %02d:%02d\nMovimientos: %d", 
+                minutes, seconds, moves);
+        
+        new AlertDialog.Builder(this)
+                .setTitle("¡Rompecabezas Completado!")
+                .setMessage(message)
+                .setPositiveButton("Jugar de nuevo", (dialog, which) -> {
+                    // Volver a seleccionar imagen
+                    pickImageLauncher.launch("image/*");
+                })
+                .setNegativeButton("Menú principal", (dialog, which) -> {
+                    finish();
+                })
+                .setCancelable(false)
+                .show();
     }
 }
 

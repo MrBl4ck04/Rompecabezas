@@ -20,6 +20,11 @@ public class AuthRepository {
             throw new IllegalArgumentException("password requerido");
         }
 
+        // Verificar si el usuario ya existe
+        if (getUserIdByUsername(username.trim()) != -1) {
+            return -1; // Usuario ya existe
+        }
+
         byte[] salt = SecurityUtils.generateSalt();
         byte[] hash = SecurityUtils.hashPassword(password, salt);
 

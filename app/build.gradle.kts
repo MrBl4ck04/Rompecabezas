@@ -39,6 +39,12 @@ dependencies {
     implementation(libs.material)
     implementation(libs.activity)
     implementation(libs.constraintlayout)
+    
+    // Dependencias adicionales para evitar crashes
+    implementation("androidx.fragment:fragment:1.6.2")
+    implementation("androidx.core:core:1.12.0")
+    implementation("androidx.lifecycle:lifecycle-runtime:2.7.0")
+    
     testImplementation(libs.junit)
     androidTestImplementation(libs.ext.junit)
     androidTestImplementation(libs.espresso.core)

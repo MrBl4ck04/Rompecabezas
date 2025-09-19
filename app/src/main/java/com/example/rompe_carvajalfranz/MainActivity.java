@@ -22,18 +22,24 @@ public class MainActivity extends AppCompatActivity {
             return insets;
         });
 
-        findViewById(R.id.btn_letters).setOnClickListener(v -> {
+        findViewById(R.id.card_letters).setOnClickListener(v -> {
             startActivity(new Intent(this, PuzzleLettersActivity.class));
         });
 
-        findViewById(R.id.btn_image).setOnClickListener(v -> {
+        findViewById(R.id.card_image).setOnClickListener(v -> {
             startActivity(new Intent(this, PuzzleImageActivity.class));
         });
 
-        findViewById(R.id.btn_ranking).setOnClickListener(v -> {
+        findViewById(R.id.card_ranking).setOnClickListener(v -> {
             Intent i = new Intent(this, RankingActivity.class);
             i.putExtra("type", "letters");
             startActivity(i);
+        });
+
+        findViewById(R.id.btn_logout).setOnClickListener(v -> {
+            new SessionManager(this).clear();
+            startActivity(new Intent(this, AuthActivity.class));
+            finish();
         });
     }
 }

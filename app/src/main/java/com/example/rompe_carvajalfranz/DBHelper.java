@@ -8,7 +8,7 @@ import android.provider.BaseColumns;
 public class DBHelper extends SQLiteOpenHelper {
 
     public static final String DATABASE_NAME = "puzzle.db";
-    public static final int DATABASE_VERSION = 1;
+    public static final int DATABASE_VERSION = 2; // subir versión para forzar onUpgrade en instalaciones previas
 
     public static final class UserTable implements BaseColumns {
         public static final String TABLE = "users";
@@ -34,6 +34,30 @@ public class DBHelper extends SQLiteOpenHelper {
 
     @Override
     public void onCreate(SQLiteDatabase db) {
+        createTablesIfNeeded(db);
+    }
+
+    @Override
+    public void onUpgrade(SQLiteDatabase db, int oldVersion, int newVersion) {
+        // Migración idempotente: garantizar tablas y constraints
+        createTablesIfNeeded(db);
+    }
+
+    @Override
+    public void onConfigure(SQLiteDatabase db) {
+        super.onConfigure(db);
+        db.setForeignKeyConstraintsEnabled(true);
+    }
+
+    @Override
+    public void onOpen(SQLiteDatabase db) {
+        super.onOpen(db);
+        // Asegurar que las tablas existan también en aperturas de DB antiguas
+        createTablesIfNeeded(db);
+    }
+
+    private void createTablesIfNeeded(SQLiteDatabase db) {
+        db.execSQL("PRAGMA foreign_keys=ON");
         db.execSQL("CREATE TABLE IF NOT EXISTS " + UserTable.TABLE + " (" +
                 UserTable._ID + " INTEGER PRIMARY KEY AUTOINCREMENT, " +
                 UserTable.COL_USERNAME + " TEXT NOT NULL UNIQUE, " +
@@ -52,14 +76,6 @@ public class DBHelper extends SQLiteOpenHelper {
                 ScoreTable.COL_CREATED_AT + " INTEGER NOT NULL, " +
                 "FOREIGN KEY(" + ScoreTable.COL_USER_ID + ") REFERENCES " + UserTable.TABLE + "(" + UserTable._ID + ") ON DELETE CASCADE" +
                 ")");
-    }
-
-    @Override
-    public void onUpgrade(SQLiteDatabase db, int oldVersion, int newVersion) {
-        // Handle migrations when schema changes
-        if (oldVersion < 1) {
-            onCreate(db);
-        }
     }
 }
 

@@ -1,5 +1,6 @@
 package com.example.rompe_carvajalfranz;
 
+import android.app.AlertDialog;
 import android.os.Bundle;
 import android.os.SystemClock;
 import android.view.View;
@@ -7,6 +8,9 @@ import android.widget.Chronometer;
 import android.widget.GridLayout;
 import android.widget.TextView;
 import android.widget.Button;
+import android.widget.Toast;
+import androidx.core.content.ContextCompat;
+import java.util.concurrent.TimeUnit;
 
 import androidx.appcompat.app.AppCompatActivity;
 
@@ -18,51 +22,69 @@ public class PuzzleLettersActivity extends AppCompatActivity {
 
     private GridLayout grid;
     private Chronometer chrono;
-    private int gridSize = 4; // 4x4
+    private int gridSize = 3; // 3x3
     private int emptyIndex; // index of empty tile
     private int moves;
     private final java.util.List<Integer> state = new java.util.ArrayList<>();
+    private final java.util.List<Integer> goalState = new java.util.ArrayList<>();
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_puzzle_letters);
-        grid = findViewById(R.id.grid);
-        chrono = findViewById(R.id.chrono);
+        
+        try {
+            grid = findViewById(R.id.grid);
+            chrono = findViewById(R.id.chrono);
 
-        grid.setColumnCount(gridSize);
-        grid.setRowCount(gridSize);
+            if (grid == null || chrono == null) {
+                Toast.makeText(this, "Error al cargar la interfaz", Toast.LENGTH_SHORT).show();
+                finish();
+                return;
+            }
 
-        setupBoard();
+            grid.setColumnCount(gridSize);
+            grid.setRowCount(gridSize);
 
-        Button btnSolve = findViewById(R.id.btn_solve);
-        if (btnSolve != null) {
-            btnSolve.setOnClickListener(v -> solveCurrent());
+            setupBoard();
+
+            Button btnSolve = findViewById(R.id.btn_solve);
+            if (btnSolve != null) {
+                btnSolve.setOnClickListener(v -> solveCurrent());
+            }
+        } catch (Exception e) {
+            Toast.makeText(this, "Error al inicializar: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+            finish();
         }
     }
 
     private void setupBoard() {
-        List<String> tiles = new ArrayList<>();
-        for (int i = 0; i < gridSize * gridSize - 1; i++) {
-            tiles.add(String.valueOf((char) ('A' + i))); // A..O for 15 tiles
-        }
-        tiles.add(""); // empty tile
+        // Estado objetivo A..H, 0 vacío
+        goalState.clear();
+        for (int i = 0; i < gridSize * gridSize - 1; i++) goalState.add(i + 1);
+        goalState.add(0);
 
+        // Crear barajado resoluble como copia del objetivo
+        List<Integer> shuffled = new ArrayList<>(goalState);
         do {
-            Collections.shuffle(tiles);
-        } while (!isSolvable(tiles));
+            Collections.shuffle(shuffled);
+        } while (!isSolvableInts(shuffled));
 
         grid.removeAllViews();
         state.clear();
         int index = 0;
         for (int r = 0; r < gridSize; r++) {
             for (int c = 0; c < gridSize; c++) {
-                String label = tiles.get(index);
+                int value = shuffled.get(index);
                 TextView tv = new TextView(this);
-                tv.setText(label);
+                tv.setText(value == 0 ? "" : String.valueOf((char) ('A' + (value - 1))));
                 tv.setTextSize(20);
                 tv.setGravity(android.view.Gravity.CENTER);
-                tv.setBackgroundColor(getResources().getColor(label.isEmpty() ? android.R.color.transparent : R.color.blue_200));
+                if (value == 0) {
+                    tv.setBackgroundColor(android.R.color.transparent);
+                } else {
+                    tv.setBackground(ContextCompat.getDrawable(this, R.drawable.tile_background));
+                }
                 GridLayout.LayoutParams lp = new GridLayout.LayoutParams();
                 lp.width = 0;
                 lp.height = 0;
@@ -70,13 +92,18 @@ public class PuzzleLettersActivity extends AppCompatActivity {
                 lp.rowSpec = GridLayout.spec(r, 1f);
                 lp.setMargins(6, 6, 6, 6);
                 tv.setLayoutParams(lp);
-                final int currentIndex = index;
-                tv.setOnClickListener(v -> onTileClick(currentIndex));
+                tv.setOnClickListener(v -> onTileClickFromView(v));
+                tv.setTag(index);
                 grid.addView(tv);
-                if (label.isEmpty()) emptyIndex = index;
-                state.add(label.isEmpty() ? 0 : (label.charAt(0) - 'A' + 1));
+                if (value == 0) emptyIndex = index;
+                state.add(value);
                 index++;
             }
+        }
+
+        if (state.size() != gridSize * gridSize) {
+            Toast.makeText(this, "Error al inicializar el estado del rompecabezas", Toast.LENGTH_SHORT).show();
+            return;
         }
 
         moves = 0;
@@ -85,19 +112,45 @@ public class PuzzleLettersActivity extends AppCompatActivity {
     }
 
     private void onTileClick(int tileIndex) {
-        if (canSwap(tileIndex, emptyIndex)) {
-            swapTiles(tileIndex, emptyIndex);
-            emptyIndex = tileIndex;
-            moves++;
-            if (isCompleted()) {
-                chrono.stop();
-                long elapsed = SystemClock.elapsedRealtime() - chrono.getBase();
-                String user = new SessionManager(this).getLoggedInUser();
-                if (user != null) {
-                    new ScoreRepository(this).insertScore(user, "letters", gridSize, moves, elapsed);
+        try {
+            // Validar índices
+            if (tileIndex < 0 || tileIndex >= gridSize * gridSize || 
+                emptyIndex < 0 || emptyIndex >= gridSize * gridSize) {
+                return;
+            }
+            
+            // No permitir click en la casilla vacía
+            if (tileIndex == emptyIndex) {
+                return;
+            }
+            
+            // Verificar si el movimiento es válido
+            if (canSwap(tileIndex, emptyIndex)) {
+                swapTiles(tileIndex, emptyIndex);
+                emptyIndex = tileIndex;
+                moves++;
+                
+                // Verificar si se completó
+                if (isCompleted()) {
+                    chrono.stop();
+                    long elapsed = SystemClock.elapsedRealtime() - chrono.getBase();
+                    String user = new SessionManager(this).getLoggedInUser();
+                    if (user != null) {
+                        new ScoreRepository(this).insertScore(user, "letters", gridSize, moves, elapsed);
+                    }
+                    showCompletionDialog(elapsed, moves);
                 }
             }
+        } catch (Exception e) {
+            Toast.makeText(this, "Error en movimiento: " + e.getMessage(), Toast.LENGTH_SHORT).show();
         }
+    }
+
+    private void onTileClickFromView(View v) {
+        Object tag = v.getTag();
+        if (!(tag instanceof Integer)) return;
+        int tileIndex = (Integer) tag;
+        onTileClick(tileIndex);
     }
 
     private boolean canSwap(int a, int b) {
@@ -107,32 +160,65 @@ public class PuzzleLettersActivity extends AppCompatActivity {
     }
 
     private void swapTiles(int a, int b) {
-        View va = grid.getChildAt(a);
-        View vb = grid.getChildAt(b);
-        grid.removeViewAt(b);
-        grid.addView(va, b);
-        grid.removeViewAt(a);
-        grid.addView(vb, a);
-        int tmp = state.get(a);
-        state.set(a, state.get(b));
-        state.set(b, tmp);
+        try {
+            if (a < 0 || a >= state.size() || b < 0 || b >= state.size()) {
+                return;
+            }
+            int tmp = state.get(a);
+            state.set(a, state.get(b));
+            state.set(b, tmp);
+
+            View va = grid.getChildAt(a);
+            View vb = grid.getChildAt(b);
+            if (va instanceof TextView) applyValueToCell((TextView) va, state.get(a));
+            if (vb instanceof TextView) applyValueToCell((TextView) vb, state.get(b));
+        } catch (Exception e) {
+            Toast.makeText(this, "Error al intercambiar fichas: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    private void applyValueToCell(TextView cell, int value) {
+        if (value == 0) {
+            cell.setText("");
+            cell.setBackgroundColor(android.graphics.Color.TRANSPARENT);
+        } else {
+            cell.setText(String.valueOf((char) ('A' + (value - 1))));
+            cell.setBackground(ContextCompat.getDrawable(this, R.drawable.tile_background));
+        }
     }
 
     private boolean isCompleted() {
-        for (int i = 0; i < gridSize * gridSize - 1; i++) {
-            TextView tv = (TextView) grid.getChildAt(i);
-            String expected = String.valueOf((char) ('A' + i));
-            if (!expected.contentEquals(tv.getText())) return false;
+        try {
+            if (state.size() != goalState.size()) return false;
+            for (int i = 0; i < state.size(); i++) {
+                if (!state.get(i).equals(goalState.get(i))) return false;
+            }
+            return true;
+        } catch (Exception e) {
+            return false;
         }
-        TextView last = (TextView) grid.getChildAt(gridSize * gridSize - 1);
-        return last.getText().length() == 0;
     }
 
     private void solveCurrent() {
-        int[] arr = new int[state.size()];
-        for (int i = 0; i < state.size(); i++) arr[i] = state.get(i);
-        java.util.List<Integer> movesIdx = FifteenPuzzleSolver.solve(arr);
-        playSolution(movesIdx);
+        try {
+            if (state.size() != 9) {
+                Toast.makeText(this, "Estado del rompecabezas inválido", Toast.LENGTH_SHORT).show();
+                return;
+            }
+            
+            int[] arr = new int[state.size()];
+            for (int i = 0; i < state.size(); i++) arr[i] = state.get(i);
+            java.util.List<Integer> movesIdx = FifteenPuzzleSolver.solve(arr);
+            
+            if (movesIdx == null || movesIdx.isEmpty()) {
+                Toast.makeText(this, "No se encontró solución", Toast.LENGTH_SHORT).show();
+                return;
+            }
+            
+            playSolution(movesIdx);
+        } catch (Exception e) {
+            Toast.makeText(this, "Error al resolver: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+        }
     }
 
     private void playSolution(java.util.List<Integer> movesIdx) {
@@ -156,19 +242,38 @@ public class PuzzleLettersActivity extends AppCompatActivity {
         }, 200);
     }
 
-    // Classic inversion count method for 15-puzzle solvability
-    private boolean isSolvable(List<String> tiles) {
+    private void showCompletionDialog(long elapsedMs, int moves) {
+        long minutes = TimeUnit.MILLISECONDS.toMinutes(elapsedMs);
+        long seconds = TimeUnit.MILLISECONDS.toSeconds(elapsedMs) % 60;
+        
+        String message = String.format("¡Felicitaciones!\n\nTiempo: %02d:%02d\nMovimientos: %d", 
+                minutes, seconds, moves);
+        
+        new AlertDialog.Builder(this)
+                .setTitle("¡Rompecabezas Completado!")
+                .setMessage(message)
+                .setPositiveButton("Jugar de nuevo", (dialog, which) -> {
+                    setupBoard();
+                })
+                .setNegativeButton("Menú principal", (dialog, which) -> {
+                    finish();
+                })
+                .setCancelable(false)
+                .show();
+    }
+
+    // Solvabilidad basada en permutación 1..8 ignorando 0
+    private boolean isSolvableInts(List<Integer> arr) {
+        List<Integer> perm = new ArrayList<>();
+        for (Integer v : arr) if (v != 0) perm.add(v);
         int inversions = 0;
-        List<Integer> nums = new ArrayList<>();
-        for (String s : tiles) {
-            if (!s.isEmpty()) nums.add((int) s.charAt(0));
-        }
-        for (int i = 0; i < nums.size(); i++) {
-            for (int j = i + 1; j < nums.size(); j++) {
-                if (nums.get(i) > nums.get(j)) inversions++;
+        for (int i = 0; i < perm.size(); i++) {
+            for (int j = i + 1; j < perm.size(); j++) {
+                if (perm.get(i) > perm.get(j)) inversions++;
             }
         }
-        int emptyRowFromBottom = gridSize - (tiles.indexOf("") / gridSize);
+        int emptyPos = arr.indexOf(0);
+        int emptyRowFromBottom = gridSize - (emptyPos / gridSize);
         if (gridSize % 2 == 1) {
             return inversions % 2 == 0;
         } else {
