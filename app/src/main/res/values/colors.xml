@@ -1,24 +1,44 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="blue_50">#E3F2FD</color>
-    <color name="blue_100">#BBDEFB</color>
-    <color name="blue_200">#90CAF9</color>
-    <color name="blue_300">#64B5F6</color>
-    <color name="blue_400">#42A5F5</color>
-    <color name="blue_500">#2196F3</color>
-    <color name="blue_600">#1E88E5</color>
-    <color name="blue_700">#1976D2</color>
-    <color name="blue_800">#1565C0</color>
-    <color name="blue_900">#0D47A1</color>
-    <color name="accent">#FF4081</color>
-    <color name="accent_light">#FF80AB</color>
-    <color name="success">#4CAF50</color>
-    <color name="warning">#FF9800</color>
-    <color name="error">#F44336</color>
-    <color name="surface">#FAFAFA</color>
-    <color name="background">#F5F5F5</color>
+    <color name="purple_50">#F3E5F5</color>
+    <color name="purple_100">#E1BEE7</color>
+    <color name="purple_200">#CE93D8</color>
+    <color name="purple_300">#BA68C8</color>
+    <color name="purple_400">#AB47BC</color>
+    <color name="purple_500">#9C27B0</color>
+    <color name="purple_600">#8E24AA</color>
+    <color name="purple_700">#7B1FA2</color>
+    <color name="purple_800">#6A1B9A</color>
+    <color name="purple_900">#4A148C</color>
+
+    <color name="accent">#FF6D00</color>
+    <color name="accent_light">#FFA040</color>
+    <color name="success">#00C853</color>
+    <color name="success_light">#4CAF50</color>
+    <color name="warning">#FFD600</color>
+    <color name="error">#FF5252</color>
+    <color name="error_light">#FF7043</color>
+    
+    <!-- Red colors for logout/delete actions -->
+    <color name="red_500">#F44336</color>
+    <color name="red_600">#E53935</color>
+    <color name="red_700">#D32F2F</color>
+    
+    <!-- Orange colors for secondary actions -->
+    <color name="orange_500">#FF9800</color>
+    <color name="orange_600">#FB8C00</color>
+    <color name="orange_700">#F57C00</color>
+    
+    <!-- Green colors for positive actions -->
+    <color name="green_500">#4CAF50</color>
+    <color name="green_600">#43A047</color>
+    <color name="green_700">#388E3C</color>
+
+    <!-- Dark surface/background and text -->
+    <color name="surface">#1E1E1E</color>
+    <color name="background">#121212</color>
     <color name="black">#FF000000</color>
     <color name="white">#FFFFFFFF</color>
-    <color name="text_primary">#212121</color>
-    <color name="text_secondary">#757575</color>
+    <color name="text_primary">#ECECEC</color>
+    <color name="text_secondary">#B3B3B3</color>
 </resources>

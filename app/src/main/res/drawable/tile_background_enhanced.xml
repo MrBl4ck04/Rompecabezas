@@ -3,10 +3,13 @@
     android:shape="rectangle">
     <gradient
         android:startColor="@color/white"
-        android:endColor="#F5F5F5"
+        android:endColor="#F8F9FA"
         android:angle="135" />
-    <corners android:radius="14dp" />
+    <corners android:radius="16dp" />
     <stroke
-        android:width="2dp"
-        android:color="@color/purple_400" />
+        android:width="3dp"
+        android:color="@color/purple_300" />
+    <size
+        android:width="100dp"
+        android:height="100dp" />
 </shape>

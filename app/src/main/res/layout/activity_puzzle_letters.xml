@@ -43,7 +43,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:textSize="16sp"
-                    android:textColor="@color/blue_600"
+                    android:textColor="@color/purple_600"
                     android:layout_marginTop="4dp" />
 
             </LinearLayout>
@@ -53,19 +53,15 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="Resolver"
-                android:textSize="14sp"
-                app:cornerRadius="8dp"
-                app:backgroundTint="@color/accent" />
+                style="@style/Widget.App.Button.Accent" />
 
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/btn_size"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="Tamaño"
-                android:textSize="14sp"
                 android:layout_marginStart="8dp"
-                app:cornerRadius="8dp"
-                app:backgroundTint="@color/blue_600" />
+                style="@style/Widget.App.Button.Orange" />
 
         </LinearLayout>
 

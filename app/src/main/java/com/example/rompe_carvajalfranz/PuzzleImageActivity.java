@@ -1,8 +1,10 @@
 package com.example.rompe_carvajalfranz;
 
+import android.Manifest;
 import android.app.AlertDialog;
 import android.content.ContentValues;
 import android.content.Intent;
+import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.Matrix;
@@ -18,6 +20,7 @@ import android.widget.Chronometer;
 import android.widget.GridLayout;
 import android.widget.ImageView;
 import android.widget.Toast;
+import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 import java.util.concurrent.TimeUnit;
 
@@ -79,6 +82,16 @@ public class PuzzleImageActivity extends AppCompatActivity {
             }
     );
 
+    private final ActivityResultLauncher<String> requestPermissionLauncher = registerForActivityResult(
+            new ActivityResultContracts.RequestPermission(), isGranted -> {
+                if (isGranted) {
+                    startCamera();
+                } else {
+                    Toast.makeText(this, "Se necesita permiso de cámara para tomar fotos", Toast.LENGTH_LONG).show();
+                }
+            }
+    );
+
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -90,8 +103,9 @@ public class PuzzleImageActivity extends AppCompatActivity {
             Button btnGallery = findViewById(R.id.btn_pick_gallery);
             Button btnCamera = findViewById(R.id.btn_pick_camera);
             Button btnSolve = findViewById(R.id.btn_solve_image);
+            Button btnGuide = findViewById(R.id.btn_show_guide);
 
-            if (grid == null || chrono == null || btnGallery == null || btnCamera == null || btnSolve == null) {
+            if (grid == null || chrono == null || btnGallery == null || btnCamera == null || btnSolve == null || btnGuide == null) {
                 Toast.makeText(this, "Error al cargar la interfaz", Toast.LENGTH_SHORT).show();
                 finish();
                 return;
@@ -101,8 +115,15 @@ public class PuzzleImageActivity extends AppCompatActivity {
             grid.setRowCount(GRID_SIZE);
 
             btnGallery.setOnClickListener(v -> pickImageLauncher.launch("image/*"));
-            btnCamera.setOnClickListener(v -> startCamera());
+            btnCamera.setOnClickListener(v -> {
+                if (isCameraAvailable()) {
+                    startCamera();
+                } else {
+                    Toast.makeText(this, "La cámara no está disponible en este dispositivo", Toast.LENGTH_LONG).show();
+                }
+            });
             btnSolve.setOnClickListener(v -> solveCurrent());
+            btnGuide.setOnClickListener(v -> showGuideImage());
         } catch (Exception e) {
             Toast.makeText(this, "Error al inicializar: " + e.getMessage(), Toast.LENGTH_SHORT).show();
             finish();
@@ -110,30 +131,62 @@ public class PuzzleImageActivity extends AppCompatActivity {
     }
 
     private void startCamera() {
+        // Verificar permisos de cámara
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) 
+                != PackageManager.PERMISSION_GRANTED) {
+            requestPermissionLauncher.launch(Manifest.permission.CAMERA);
+            return;
+        }
+        
         try {
             cameraPhotoUri = createImageUri();
             if (cameraPhotoUri != null) {
                 takePictureLauncher.launch(cameraPhotoUri);
+            } else {
+                Toast.makeText(this, "Error al crear archivo de imagen", Toast.LENGTH_SHORT).show();
             }
         } catch (Exception e) {
-            Toast.makeText(this, "Error al abrir cámara", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, "Error al abrir cámara: " + e.getMessage(), Toast.LENGTH_SHORT).show();
         }
     }
 
     private Uri createImageUri() {
-        String timeStamp = new SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(new Date());
-        String fileName = "IMG_" + timeStamp + ".jpg";
-        if (Build.VERSION.SDK_INT >= 29) {
-            ContentValues values = new ContentValues();
-            values.put(MediaStore.Images.Media.DISPLAY_NAME, fileName);
-            values.put(MediaStore.Images.Media.MIME_TYPE, "image/jpeg");
-            values.put(MediaStore.Images.Media.RELATIVE_PATH, Environment.DIRECTORY_PICTURES + "/Rompecabezas");
-            return getContentResolver().insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values);
-        } else {
-            File imagesDir = getExternalFilesDir(Environment.DIRECTORY_PICTURES);
-            if (imagesDir == null) return null;
-            File image = new File(imagesDir, fileName);
-            return FileProvider.getUriForFile(this, getPackageName() + ".provider", image);
+        try {
+            String timeStamp = new SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(new Date());
+            String fileName = "IMG_" + timeStamp + ".jpg";
+            
+            if (Build.VERSION.SDK_INT >= 29) {
+                ContentValues values = new ContentValues();
+                values.put(MediaStore.Images.Media.DISPLAY_NAME, fileName);
+                values.put(MediaStore.Images.Media.MIME_TYPE, "image/jpeg");
+                values.put(MediaStore.Images.Media.RELATIVE_PATH, Environment.DIRECTORY_PICTURES + "/Rompecabezas");
+                Uri uri = getContentResolver().insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values);
+                if (uri == null) {
+                    Toast.makeText(this, "Error al crear URI para Android 10+", Toast.LENGTH_SHORT).show();
+                }
+                return uri;
+            } else {
+                File imagesDir = getExternalFilesDir(Environment.DIRECTORY_PICTURES);
+                if (imagesDir == null) {
+                    Toast.makeText(this, "No se pudo acceder al directorio de imágenes", Toast.LENGTH_SHORT).show();
+                    return null;
+                }
+                
+                // Crear el directorio si no existe
+                if (!imagesDir.exists()) {
+                    imagesDir.mkdirs();
+                }
+                
+                File image = new File(imagesDir, fileName);
+                Uri uri = FileProvider.getUriForFile(this, getPackageName() + ".provider", image);
+                if (uri == null) {
+                    Toast.makeText(this, "Error al crear URI con FileProvider", Toast.LENGTH_SHORT).show();
+                }
+                return uri;
+            }
+        } catch (Exception e) {
+            Toast.makeText(this, "Error al crear URI: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+            return null;
         }
     }
 
@@ -238,16 +291,25 @@ public class PuzzleImageActivity extends AppCompatActivity {
                     for (int c = 0; c < GRID_SIZE; c++) {
                         Bitmap b = tiles.get(index);
                         ImageView iv = new ImageView(this);
-                        iv.setScaleType(ImageView.ScaleType.FIT_XY);
+                        iv.setScaleType(ImageView.ScaleType.CENTER_CROP);
+                        
+                        // Agregar padding y bordes más bonitos
+                        int padding = 4;
+                        iv.setPadding(padding, padding, padding, padding);
+                        
                         if (b != null) {
                             iv.setImageBitmap(b);
+                            // Sin resaltado para las piezas de imagen
+                        } else {
+                            iv.setBackground(ContextCompat.getDrawable(this, R.drawable.empty_tile_background));
                         }
+                        
                         GridLayout.LayoutParams lp = new GridLayout.LayoutParams();
                         lp.width = tileSize;
                         lp.height = tileSize;
                         lp.columnSpec = GridLayout.spec(c);
                         lp.rowSpec = GridLayout.spec(r);
-                        lp.setMargins(0, 0, 0, 0);
+                        lp.setMargins(2, 2, 2, 2);
                         iv.setLayoutParams(lp);
                         iv.setTag(index);
                         iv.setOnClickListener(v -> onTileClickFromView(v));
@@ -476,6 +538,33 @@ public class PuzzleImageActivity extends AppCompatActivity {
                 })
                 .setCancelable(false)
                 .show();
+    }
+
+    private void showGuideImage() {
+        if (sourceSquare == null) {
+            Toast.makeText(this, "Primero selecciona una imagen", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        
+        // Crear un diálogo para mostrar la imagen guía
+        androidx.appcompat.app.AlertDialog.Builder builder = new androidx.appcompat.app.AlertDialog.Builder(this);
+        
+        ImageView imageView = new ImageView(this);
+        imageView.setImageBitmap(sourceSquare);
+        imageView.setScaleType(ImageView.ScaleType.CENTER_INSIDE);
+        imageView.setAdjustViewBounds(true);
+        imageView.setMaxWidth(800);
+        imageView.setMaxHeight(800);
+        
+        builder.setView(imageView)
+                .setTitle("Imagen Guía")
+                .setMessage("Esta es la imagen original que debes reconstruir")
+                .setPositiveButton("Cerrar", null)
+                .show();
+    }
+
+    private boolean isCameraAvailable() {
+        return getPackageManager().hasSystemFeature(PackageManager.FEATURE_CAMERA_ANY);
     }
 }
 

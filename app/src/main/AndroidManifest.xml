@@ -54,6 +54,10 @@
         <activity
             android:name=".UserScoresActivity"
             android:exported="false" />
+
+        <activity
+            android:name=".GuideImageActivity"
+            android:exported="false" />
     </application>
 
 </manifest>

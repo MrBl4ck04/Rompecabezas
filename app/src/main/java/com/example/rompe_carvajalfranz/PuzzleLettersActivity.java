@@ -92,17 +92,20 @@ public class PuzzleLettersActivity extends AppCompatActivity {
                 float textSp = (gridSize <= 2) ? 28 : (gridSize == 3 ? 22 : (gridSize == 4 ? 18 : 16));
                 tv.setTextSize(textSp);
                 tv.setGravity(android.view.Gravity.CENTER);
+                tv.setTextColor(getResources().getColor(R.color.purple_700, getTheme()));
+                tv.setTypeface(null, android.graphics.Typeface.BOLD);
+                
                 if (value == 0) {
-                    tv.setBackgroundColor(android.R.color.transparent);
+                    tv.setBackground(ContextCompat.getDrawable(this, R.drawable.empty_tile_background));
                 } else {
-                    tv.setBackground(ContextCompat.getDrawable(this, R.drawable.tile_background));
+                    tv.setBackground(ContextCompat.getDrawable(this, R.drawable.tile_background_enhanced));
                 }
                 GridLayout.LayoutParams lp = new GridLayout.LayoutParams();
                 lp.width = 0;
                 lp.height = 0;
                 lp.columnSpec = GridLayout.spec(c, 1f);
                 lp.rowSpec = GridLayout.spec(r, 1f);
-                lp.setMargins(0, 0, 0, 0);
+                lp.setMargins(4, 4, 4, 4);
                 tv.setLayoutParams(lp);
                 tv.setOnClickListener(v -> onTileClickFromView(v));
                 tv.setTag(index);

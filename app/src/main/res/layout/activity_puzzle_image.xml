@@ -44,8 +44,7 @@
                     android:layout_weight="1"
                     android:text="Galería"
                     android:layout_marginEnd="8dp"
-                    app:cornerRadius="8dp"
-                    app:backgroundTint="@color/blue_600" />
+                    style="@style/Widget.App.Button" />
 
                 <com.google.android.material.button.MaterialButton
                     android:id="@+id/btn_pick_camera"
@@ -54,26 +53,42 @@
                     android:layout_weight="1"
                     android:text="Cámara"
                     android:layout_marginStart="8dp"
-                    app:cornerRadius="8dp"
-                    app:backgroundTint="@color/accent" />
+                    style="@style/Widget.App.Button.Green" />
 
             </LinearLayout>
 
-            <com.google.android.material.button.MaterialButton
-                android:id="@+id/btn_solve_image"
+            <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="Resolver"
-                android:layout_marginTop="12dp"
-                app:cornerRadius="8dp"
-                app:backgroundTint="@color/blue_600" />
+                android:orientation="horizontal"
+                android:layout_marginTop="12dp">
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btn_show_guide"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="Ver guía"
+                    android:layout_marginEnd="8dp"
+                    style="@style/Widget.App.Button.Green" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btn_solve_image"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="Resolver"
+                    android:layout_marginStart="8dp"
+                    style="@style/Widget.App.Button" />
+
+            </LinearLayout>
 
             <Chronometer
                 android:id="@+id/chrono_image"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:textSize="16sp"
-                android:textColor="@color/blue_600"
+                android:textColor="@color/purple_600"
                 android:layout_marginTop="12dp" />
 
         </LinearLayout>

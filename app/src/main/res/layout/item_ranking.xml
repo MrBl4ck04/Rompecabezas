@@ -20,7 +20,7 @@
             android:layout_height="48dp"
             app:cardCornerRadius="24dp"
             app:cardElevation="0dp"
-            app:cardBackgroundColor="@color/blue_100">
+            app:cardBackgroundColor="@color/purple_100">
 
             <TextView
                 android:id="@+id/txt_rank"
@@ -28,7 +28,7 @@
                 android:layout_height="match_parent"
                 android:gravity="center"
                 android:textStyle="bold"
-                android:textColor="@color/blue_700"
+                android:textColor="@color/purple_700"
                 android:textSize="18sp"
                 android:text="1" />
 
@@ -71,7 +71,7 @@
                 android:id="@+id/txt_time"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:textColor="@color/blue_600"
+                android:textColor="@color/purple_600"
                 android:textStyle="bold"
                 android:textSize="18sp"
                 android:text="00:00" />
