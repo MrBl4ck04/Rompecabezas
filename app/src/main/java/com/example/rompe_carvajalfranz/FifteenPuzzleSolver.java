@@ -13,8 +13,6 @@ import java.util.PriorityQueue;
  */
 public class FifteenPuzzleSolver {
 
-    private static final int SIZE = 3;
-
     private static class Node implements Comparable<Node> {
         int[] state;
         int zeroIdx;
@@ -43,14 +41,16 @@ public class FifteenPuzzleSolver {
     }
 
     public static List<Integer> solve(int[] start) {
-        int[] goal = goal();
+        int size = detectSize(start);
+        if (size < 2) return new ArrayList<>();
+        int[] goal = goal(size);
         if (Arrays.equals(start, goal)) return new ArrayList<>();
 
         int zeroStart = indexOfZero(start);
         PriorityQueue<Node> open = new PriorityQueue<>();
         HashMap<String, Integer> bestG = new HashMap<>();
 
-        Node startNode = new Node(start.clone(), zeroStart, 0, manhattan(start), null, -1);
+        Node startNode = new Node(start.clone(), zeroStart, 0, manhattan(start, size), null, -1);
         open.add(startNode);
         bestG.put(key(start), 0);
 
@@ -60,14 +60,14 @@ public class FifteenPuzzleSolver {
                 return reconstructMoves(cur);
             }
 
-            for (int nei : neighbors(cur.zeroIdx)) {
+            for (int nei : neighbors(cur.zeroIdx, size)) {
                 int[] nextState = cur.state.clone();
                 swap(nextState, cur.zeroIdx, nei);
                 int g = cur.g + 1;
                 String k = key(nextState);
                 Integer known = bestG.get(k);
                 if (known == null || g < known) {
-                    int h = manhattan(nextState);
+                    int h = manhattan(nextState, size);
                     Node n = new Node(nextState, nei, g, h, cur, nei);
                     open.add(n);
                     bestG.put(k, g);
@@ -87,22 +87,22 @@ public class FifteenPuzzleSolver {
         return path;
     }
 
-    private static int manhattan(int[] state) {
+    private static int manhattan(int[] state, int size) {
         int dist = 0;
         for (int i = 0; i < state.length; i++) {
             int v = state[i];
             if (v == 0) continue;
-            int targetRow = (v - 1) / SIZE;
-            int targetCol = (v - 1) % SIZE;
-            int r = i / SIZE;
-            int c = i % SIZE;
+            int targetRow = (v - 1) / size;
+            int targetCol = (v - 1) % size;
+            int r = i / size;
+            int c = i % size;
             dist += Math.abs(r - targetRow) + Math.abs(c - targetCol);
         }
         return dist;
     }
 
-    private static int[] goal() {
-        int[] g = new int[SIZE * SIZE];
+    private static int[] goal(int size) {
+        int[] g = new int[size * size];
         for (int i = 0; i < g.length - 1; i++) g[i] = i + 1;
         g[g.length - 1] = 0;
         return g;
@@ -125,15 +125,22 @@ public class FifteenPuzzleSolver {
         a[j] = t;
     }
 
-    private static List<Integer> neighbors(int zeroIdx) {
-        int r = zeroIdx / SIZE;
-        int c = zeroIdx % SIZE;
+    private static List<Integer> neighbors(int zeroIdx, int size) {
+        int r = zeroIdx / size;
+        int c = zeroIdx % size;
         ArrayList<Integer> ns = new ArrayList<>(4);
-        if (r > 0) ns.add(zeroIdx - SIZE);
-        if (r < SIZE - 1) ns.add(zeroIdx + SIZE);
+        if (r > 0) ns.add(zeroIdx - size);
+        if (r < size - 1) ns.add(zeroIdx + size);
         if (c > 0) ns.add(zeroIdx - 1);
-        if (c < SIZE - 1) ns.add(zeroIdx + 1);
+        if (c < size - 1) ns.add(zeroIdx + 1);
         return ns;
+    }
+
+    private static int detectSize(int[] arr) {
+        int len = arr != null ? arr.length : 0;
+        if (len == 0) return -1;
+        int s = (int) Math.round(Math.sqrt(len));
+        return s * s == len ? s : -1;
     }
 }
 

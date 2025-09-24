@@ -52,6 +52,8 @@ public class PuzzleImageActivity extends AppCompatActivity {
     // Estado objetivo estable (orden correcto de las piezas)
     private final List<Bitmap> goalTiles = new ArrayList<>();
     private int moves;
+    private boolean chronoStarted;
+    @Nullable private Bitmap sourceSquare;
 
     private final ActivityResultLauncher<String> pickImageLauncher = registerForActivityResult(
             new ActivityResultContracts.GetContent(), new ActivityResultCallback<Uri>() {
@@ -141,12 +143,12 @@ public class PuzzleImageActivity extends AppCompatActivity {
             Toast.makeText(this, "No se pudo cargar la imagen", Toast.LENGTH_SHORT).show();
             return;
         }
-        Bitmap square = cropCenterSquare(bitmap);
-        buildTiles(square);
+        sourceSquare = cropCenterSquare(bitmap);
         setupBoard();
         moves = 0;
+        chrono.stop();
         chrono.setBase(SystemClock.elapsedRealtime());
-        chrono.start();
+        chronoStarted = false;
     }
 
     @Nullable
@@ -197,21 +199,19 @@ public class PuzzleImageActivity extends AppCompatActivity {
         return Bitmap.createBitmap(bmp, x, y, size, size);
     }
 
-    private void buildTiles(Bitmap square) {
+    private void buildTilesUniform(Bitmap scaledSquare, int tileSizePx) {
         tiles.clear();
         goalTiles.clear();
-        int tileSize = square.getWidth() / GRID_SIZE;
         for (int r = 0; r < GRID_SIZE; r++) {
             for (int c = 0; c < GRID_SIZE; c++) {
                 if (r == GRID_SIZE - 1 && c == GRID_SIZE - 1) {
-                    goalTiles.add(null); // vacío al final
+                    goalTiles.add(null);
                 } else {
-                    Bitmap tile = Bitmap.createBitmap(square, c * tileSize, r * tileSize, tileSize, tileSize);
+                    Bitmap tile = Bitmap.createBitmap(scaledSquare, c * tileSizePx, r * tileSizePx, tileSizePx, tileSizePx);
                     goalTiles.add(tile);
                 }
             }
         }
-        // Crear una copia barajada del objetivo
         tiles.addAll(goalTiles);
         do {
             Collections.shuffle(tiles);
@@ -219,38 +219,51 @@ public class PuzzleImageActivity extends AppCompatActivity {
     }
 
     private void setupBoard() {
-        grid.removeAllViews();
-        int index = 0;
-        for (int r = 0; r < GRID_SIZE; r++) {
-            for (int c = 0; c < GRID_SIZE; c++) {
-                Bitmap b = tiles.get(index);
-                ImageView iv = new ImageView(this);
-                iv.setScaleType(ImageView.ScaleType.CENTER_CROP);
-                if (b != null) {
-                    iv.setImageBitmap(b);
-                    iv.setBackground(ContextCompat.getDrawable(this, R.drawable.tile_background));
+        if (sourceSquare == null) return;
+        grid.post(() -> {
+            try {
+                int gw = grid.getWidth();
+                int gh = grid.getHeight();
+                if (gw <= 0 || gh <= 0) return;
+                int sizePx = Math.min(gw, gh);
+                int tileSize = sizePx / GRID_SIZE;
+                int fullSize = tileSize * GRID_SIZE;
+
+                Bitmap scaled = Bitmap.createScaledBitmap(sourceSquare, fullSize, fullSize, true);
+                buildTilesUniform(scaled, tileSize);
+
+                grid.removeAllViews();
+                int index = 0;
+                for (int r = 0; r < GRID_SIZE; r++) {
+                    for (int c = 0; c < GRID_SIZE; c++) {
+                        Bitmap b = tiles.get(index);
+                        ImageView iv = new ImageView(this);
+                        iv.setScaleType(ImageView.ScaleType.FIT_XY);
+                        if (b != null) {
+                            iv.setImageBitmap(b);
+                        }
+                        GridLayout.LayoutParams lp = new GridLayout.LayoutParams();
+                        lp.width = tileSize;
+                        lp.height = tileSize;
+                        lp.columnSpec = GridLayout.spec(c);
+                        lp.rowSpec = GridLayout.spec(r);
+                        lp.setMargins(0, 0, 0, 0);
+                        iv.setLayoutParams(lp);
+                        iv.setTag(index);
+                        iv.setOnClickListener(v -> onTileClickFromView(v));
+                        grid.addView(iv);
+                        if (b == null) emptyIndex = index;
+                        index++;
+                    }
                 }
-                GridLayout.LayoutParams lp = new GridLayout.LayoutParams();
-                lp.width = 0;
-                lp.height = 0;
-                lp.columnSpec = GridLayout.spec(c, 1f);
-                lp.rowSpec = GridLayout.spec(r, 1f);
-                lp.setMargins(6, 6, 6, 6);
-                iv.setLayoutParams(lp);
-                // Guardar el índice lógico actual en el tag del view
-                iv.setTag(index);
-                iv.setOnClickListener(v -> onTileClickFromView(v));
-                grid.addView(iv);
-                if (b == null) emptyIndex = index;
-                index++;
+
+                if (tiles.size() != GRID_SIZE * GRID_SIZE) {
+                    Toast.makeText(this, "Error al inicializar el estado del rompecabezas", Toast.LENGTH_SHORT).show();
+                }
+            } catch (Exception e) {
+                Toast.makeText(this, "Error al construir tablero: " + e.getMessage(), Toast.LENGTH_SHORT).show();
             }
-        }
-        
-        // Validar que el estado se inicializó correctamente
-        if (tiles.size() != GRID_SIZE * GRID_SIZE) {
-            Toast.makeText(this, "Error al inicializar el estado del rompecabezas", Toast.LENGTH_SHORT).show();
-            return;
-        }
+        });
     }
 
     private void onTileClick(int tileIndex) {
@@ -268,6 +281,7 @@ public class PuzzleImageActivity extends AppCompatActivity {
             
             // Verificar si el movimiento es válido
             if (canSwap(tileIndex, emptyIndex)) {
+                if (!chronoStarted) { chrono.setBase(SystemClock.elapsedRealtime()); chrono.start(); chronoStarted = true; }
                 swapTiles(tileIndex, emptyIndex);
                 emptyIndex = tileIndex;
                 moves++;
@@ -277,9 +291,8 @@ public class PuzzleImageActivity extends AppCompatActivity {
                     chrono.stop();
                     long elapsed = SystemClock.elapsedRealtime() - chrono.getBase();
                     String user = new SessionManager(this).getLoggedInUser();
-                    if (user != null) {
-                        new ScoreRepository(this).insertScore(user, "image", GRID_SIZE, moves, elapsed);
-                    }
+                    if (user == null || user.trim().isEmpty()) user = "guest";
+                    new ScoreRepository(this).insertScore(user, "image", GRID_SIZE, moves, elapsed);
                     showCompletionDialog(elapsed, moves);
                 }
             }
@@ -318,9 +331,11 @@ public class PuzzleImageActivity extends AppCompatActivity {
             View vb = grid.getChildAt(b);
             if (va instanceof ImageView) {
                 applyBitmapToCell((ImageView) va, tiles.get(a));
+                animateCell(va);
             }
             if (vb instanceof ImageView) {
                 applyBitmapToCell((ImageView) vb, tiles.get(b));
+                animateCell(vb);
             }
         } catch (Exception e) {
             Toast.makeText(this, "Error al intercambiar fichas: " + e.getMessage(), Toast.LENGTH_SHORT).show();
@@ -333,8 +348,25 @@ public class PuzzleImageActivity extends AppCompatActivity {
             cell.setBackgroundColor(android.graphics.Color.TRANSPARENT);
         } else {
             cell.setImageBitmap(bmp);
-            cell.setBackground(ContextCompat.getDrawable(this, R.drawable.tile_background));
+            cell.setBackgroundColor(android.graphics.Color.TRANSPARENT);
         }
+    }
+
+    private void animateCell(View v) {
+        try {
+            v.animate()
+                    .setDuration(120)
+                    .scaleX(0.96f)
+                    .scaleY(0.96f)
+                    .alpha(0.9f)
+                    .withEndAction(() -> v.animate()
+                            .setDuration(120)
+                            .scaleX(1f)
+                            .scaleY(1f)
+                            .alpha(1f)
+                            .start())
+                    .start();
+        } catch (Exception ignored) {}
     }
 
     private void solveCurrent() {

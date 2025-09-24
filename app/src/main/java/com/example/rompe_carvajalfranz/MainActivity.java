@@ -30,10 +30,8 @@ public class MainActivity extends AppCompatActivity {
             startActivity(new Intent(this, PuzzleImageActivity.class));
         });
 
-        findViewById(R.id.card_ranking).setOnClickListener(v -> {
-            Intent i = new Intent(this, RankingActivity.class);
-            i.putExtra("type", "letters");
-            startActivity(i);
+        findViewById(R.id.card_user_scores).setOnClickListener(v -> {
+            startActivity(new Intent(this, UserScoresActivity.class));
         });
 
         findViewById(R.id.btn_logout).setOnClickListener(v -> {

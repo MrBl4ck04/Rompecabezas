@@ -65,6 +65,36 @@ public class ScoreRepository {
         return list;
     }
 
+    public List<ScoreRow> getUserScores(String username, String puzzleType, int limit) {
+        List<ScoreRow> list = new ArrayList<>();
+        try {
+            long userId = authRepository.getUserIdByUsername(username);
+            if (userId <= 0) return list;
+            SQLiteDatabase db = dbHelper.getReadableDatabase();
+            String sql = "SELECT s." + DBHelper.ScoreTable.COL_TIME_MS + ", s." + DBHelper.ScoreTable.COL_MOVES +
+                    " FROM " + DBHelper.ScoreTable.TABLE + " s " +
+                    " WHERE s." + DBHelper.ScoreTable.COL_USER_ID + " = ? " +
+                    (puzzleType != null ? (" AND s." + DBHelper.ScoreTable.COL_PUZZLE_TYPE + " = ? ") : "") +
+                    " ORDER BY s." + DBHelper.ScoreTable.COL_CREATED_AT + " DESC LIMIT " + Math.max(1, limit);
+            String[] args;
+            if (puzzleType != null) {
+                args = new String[]{String.valueOf(userId), puzzleType};
+            } else {
+                args = new String[]{String.valueOf(userId)};
+            }
+            try (Cursor c = db.rawQuery(sql, args)) {
+                while (c.moveToNext()) {
+                    long timeMs = c.getLong(0);
+                    int moves = c.getInt(1);
+                    list.add(new ScoreRow(username, moves, timeMs));
+                }
+            }
+        } catch (Exception e) {
+            // devolver lista vacía en error
+        }
+        return list;
+    }
+
     public static class ScoreRow {
         public final String username;
         public final int moves;

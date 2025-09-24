@@ -57,6 +57,16 @@
                 app:cornerRadius="8dp"
                 app:backgroundTint="@color/accent" />
 
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btn_size"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Tamaño"
+                android:textSize="14sp"
+                android:layout_marginStart="8dp"
+                app:cornerRadius="8dp"
+                app:backgroundTint="@color/blue_600" />
+
         </LinearLayout>
 
     </com.google.android.material.card.MaterialCardView>
@@ -78,7 +88,7 @@
             android:id="@+id/grid"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
-            android:padding="16dp" />
+            android:padding="0dp" />
 
     </com.google.android.material.card.MaterialCardView>
 

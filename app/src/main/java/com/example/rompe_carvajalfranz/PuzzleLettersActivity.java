@@ -27,6 +27,7 @@ public class PuzzleLettersActivity extends AppCompatActivity {
     private int moves;
     private final java.util.List<Integer> state = new java.util.ArrayList<>();
     private final java.util.List<Integer> goalState = new java.util.ArrayList<>();
+    private boolean chronoStarted;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -52,6 +53,11 @@ public class PuzzleLettersActivity extends AppCompatActivity {
             if (btnSolve != null) {
                 btnSolve.setOnClickListener(v -> solveCurrent());
             }
+
+            Button btnSize = findViewById(R.id.btn_size);
+            if (btnSize != null) {
+                btnSize.setOnClickListener(v -> chooseSize());
+            }
         } catch (Exception e) {
             Toast.makeText(this, "Error al inicializar: " + e.getMessage(), Toast.LENGTH_SHORT).show();
             finish();
@@ -59,7 +65,11 @@ public class PuzzleLettersActivity extends AppCompatActivity {
     }
 
     private void setupBoard() {
-        // Estado objetivo A..H, 0 vacío
+        // Asegurar configuración del grid según tamaño actual
+        grid.setColumnCount(gridSize);
+        grid.setRowCount(gridSize);
+
+        // Estado objetivo letras, 0 vacío
         goalState.clear();
         for (int i = 0; i < gridSize * gridSize - 1; i++) goalState.add(i + 1);
         goalState.add(0);
@@ -78,7 +88,9 @@ public class PuzzleLettersActivity extends AppCompatActivity {
                 int value = shuffled.get(index);
                 TextView tv = new TextView(this);
                 tv.setText(value == 0 ? "" : String.valueOf((char) ('A' + (value - 1))));
-                tv.setTextSize(20);
+                // Ajustar tamaño de fuente según tamaño de grilla
+                float textSp = (gridSize <= 2) ? 28 : (gridSize == 3 ? 22 : (gridSize == 4 ? 18 : 16));
+                tv.setTextSize(textSp);
                 tv.setGravity(android.view.Gravity.CENTER);
                 if (value == 0) {
                     tv.setBackgroundColor(android.R.color.transparent);
@@ -90,7 +102,7 @@ public class PuzzleLettersActivity extends AppCompatActivity {
                 lp.height = 0;
                 lp.columnSpec = GridLayout.spec(c, 1f);
                 lp.rowSpec = GridLayout.spec(r, 1f);
-                lp.setMargins(6, 6, 6, 6);
+                lp.setMargins(0, 0, 0, 0);
                 tv.setLayoutParams(lp);
                 tv.setOnClickListener(v -> onTileClickFromView(v));
                 tv.setTag(index);
@@ -107,8 +119,10 @@ public class PuzzleLettersActivity extends AppCompatActivity {
         }
 
         moves = 0;
+        chrono.stop();
         chrono.setBase(SystemClock.elapsedRealtime());
         chrono.start();
+        grid.requestLayout();
     }
 
     private void onTileClick(int tileIndex) {
@@ -126,6 +140,7 @@ public class PuzzleLettersActivity extends AppCompatActivity {
             
             // Verificar si el movimiento es válido
             if (canSwap(tileIndex, emptyIndex)) {
+                if (!chronoStarted) { chrono.setBase(SystemClock.elapsedRealtime()); chrono.start(); chronoStarted = true; }
                 swapTiles(tileIndex, emptyIndex);
                 emptyIndex = tileIndex;
                 moves++;
@@ -135,9 +150,8 @@ public class PuzzleLettersActivity extends AppCompatActivity {
                     chrono.stop();
                     long elapsed = SystemClock.elapsedRealtime() - chrono.getBase();
                     String user = new SessionManager(this).getLoggedInUser();
-                    if (user != null) {
-                        new ScoreRepository(this).insertScore(user, "letters", gridSize, moves, elapsed);
-                    }
+                    if (user == null || user.trim().isEmpty()) user = "guest";
+                    new ScoreRepository(this).insertScore(user, "letters", gridSize, moves, elapsed);
                     showCompletionDialog(elapsed, moves);
                 }
             }
@@ -170,8 +184,8 @@ public class PuzzleLettersActivity extends AppCompatActivity {
 
             View va = grid.getChildAt(a);
             View vb = grid.getChildAt(b);
-            if (va instanceof TextView) applyValueToCell((TextView) va, state.get(a));
-            if (vb instanceof TextView) applyValueToCell((TextView) vb, state.get(b));
+            if (va instanceof TextView) { applyValueToCell((TextView) va, state.get(a)); animateCell(va); }
+            if (vb instanceof TextView) { applyValueToCell((TextView) vb, state.get(b)); animateCell(vb); }
         } catch (Exception e) {
             Toast.makeText(this, "Error al intercambiar fichas: " + e.getMessage(), Toast.LENGTH_SHORT).show();
         }
@@ -185,6 +199,23 @@ public class PuzzleLettersActivity extends AppCompatActivity {
             cell.setText(String.valueOf((char) ('A' + (value - 1))));
             cell.setBackground(ContextCompat.getDrawable(this, R.drawable.tile_background));
         }
+    }
+
+    private void animateCell(View v) {
+        try {
+            v.animate()
+                    .setDuration(120)
+                    .scaleX(0.96f)
+                    .scaleY(0.96f)
+                    .alpha(0.9f)
+                    .withEndAction(() -> v.animate()
+                            .setDuration(120)
+                            .scaleX(1f)
+                            .scaleY(1f)
+                            .alpha(1f)
+                            .start())
+                    .start();
+        } catch (Exception ignored) {}
     }
 
     private boolean isCompleted() {
@@ -201,7 +232,7 @@ public class PuzzleLettersActivity extends AppCompatActivity {
 
     private void solveCurrent() {
         try {
-            if (state.size() != 9) {
+            if (state.size() != gridSize * gridSize) {
                 Toast.makeText(this, "Estado del rompecabezas inválido", Toast.LENGTH_SHORT).show();
                 return;
             }
@@ -283,6 +314,21 @@ public class PuzzleLettersActivity extends AppCompatActivity {
                 return inversions % 2 == 0;
             }
         }
+    }
+
+    private void chooseSize() {
+        final String[] labels = {"2 x 2", "3 x 3", "4 x 4", "5 x 5"};
+        final int[] sizes = {2, 3, 4, 5};
+        new AlertDialog.Builder(this)
+                .setTitle("Selecciona tamaño")
+                .setItems(labels, (dialog, which) -> {
+                    if (which < 0 || which >= sizes.length) return;
+                    gridSize = sizes[which];
+                    grid.setColumnCount(gridSize);
+                    grid.setRowCount(gridSize);
+                    setupBoard();
+                })
+                .show();
     }
 }
 

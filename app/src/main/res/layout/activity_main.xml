@@ -168,7 +168,7 @@
         </com.google.android.material.card.MaterialCardView>
 
         <com.google.android.material.card.MaterialCardView
-            android:id="@+id/card_ranking"
+            android:id="@+id/card_user_scores"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_marginTop="16dp"
@@ -189,7 +189,7 @@
                 <ImageView
                     android:layout_width="48dp"
                     android:layout_height="48dp"
-                    android:src="@drawable/ic_trophy"
+                    android:src="@mipmap/ic_launcher"
                     android:layout_marginEnd="16dp" />
 
                 <LinearLayout
@@ -201,7 +201,7 @@
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="Ranking"
+                        android:text="Mis puntajes"
                         android:textColor="@color/text_primary"
                         android:textStyle="bold"
                         android:textSize="18sp" />
@@ -209,7 +209,7 @@
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="Ve los mejores tiempos"
+                        android:text="Historial de tus partidas"
                         android:textColor="@color/text_secondary"
                         android:textSize="14sp"
                         android:layout_marginTop="4dp" />
@@ -238,7 +238,7 @@
             app:backgroundTint="@android:color/transparent"
             app:strokeColor="@color/error"
             app:strokeWidth="2dp"
-            app:layout_constraintTop_toBottomOf="@id/card_ranking"
+            app:layout_constraintTop_toBottomOf="@id/card_user_scores"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintBottom_toBottomOf="parent" />
